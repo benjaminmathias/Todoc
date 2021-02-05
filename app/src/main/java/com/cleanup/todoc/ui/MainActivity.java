@@ -10,21 +10,28 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cleanup.todoc.R;
+import com.cleanup.todoc.injections.Injection;
+import com.cleanup.todoc.injections.ViewModelFactory;
 import com.cleanup.todoc.model.Project;
 import com.cleanup.todoc.model.Task;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 
 /**
  * <p>Home activity of the application which is displayed when the user opens the app.</p>
@@ -89,6 +96,10 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
     @NonNull
     private TextView lblNoTasks;
 
+    // DATA
+    private TaskViewModel taskViewModel;
+    private static int TASK_ID = 1;
+
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -107,6 +118,35 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
                 showAddTaskDialog();
             }
         });
+
+        this.configureViewModel();
+        this.getTasks();
+    }
+
+    private void configureViewModel() {
+        ViewModelFactory viewModelFactory = Injection.provideViewModelFactory(this);
+        this.taskViewModel = ViewModelProviders.of(this, viewModelFactory).get(TaskViewModel.class);
+        this.taskViewModel.init(TASK_ID);
+    }
+
+
+    private void getTasks() {
+        this.taskViewModel.getTasks().observe(this, this::updateTaskList);
+    }
+
+    private void deleteTask(Task task) {
+        this.taskViewModel.deleteTask(task.getId());
+    }
+
+    private void updateTaskList(List<Task> tasks) {
+        this.tasks.clear();
+        this.tasks.addAll(tasks);
+        if (tasks.size() > 0) {
+            lblNoTasks.setVisibility(View.GONE);
+        } else {
+            lblNoTasks.setVisibility(View.VISIBLE);
+        }
+        this.adapter.updateTasks(tasks);
     }
 
     @Override
@@ -137,6 +177,7 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
     @Override
     public void onDeleteTask(Task task) {
         tasks.remove(task);
+        deleteTask(task);
         updateTasks();
     }
 
@@ -174,12 +215,13 @@ public class MainActivity extends AppCompatActivity implements TasksAdapter.Dele
                         new Date().getTime()
                 );
 
+                this.taskViewModel.createTask(task);
                 addTask(task);
 
                 dialogInterface.dismiss();
             }
             // If name has been set, but project has not been set (this should never occur)
-            else{
+            else {
                 dialogInterface.dismiss();
             }
         }
